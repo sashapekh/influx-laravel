@@ -1,158 +1,41 @@
 version: "3.9"
 
 services:
-  admin:
-    container_name: marketplace_admin
+  api:
+    container_name: influx_api
     restart: unless-stopped
-    working_dir: /var/www/admin
+    working_dir: /var/www/api
     volumes:
-      - ./admin:/var/www/admin
-      - ./external:/var/www/external
+      - ./.:/var/www/api
+      - ./.docker:/usr/local/etc/php/php.ini
     build:
-      context: ./.docker/php/admin
-      args:
-        user: ${GENERA_USER}
-        uid: ${GENERAL_UID}
-    depends_on:
-      - nginx
-      - mysql
-      - redis
-    networks:
-      - backend
-#  frontend:
-#    container_name: frontend_marketplace
-#    build:
-#      context: ./frontend
-#    volumes:
-#      - ./frontend:/frontend
-#      - '/frontend/node_modules'
-#    depends_on:
-#      - rest_api
-#    ports:
-#      - "24678:24678"
-#      - "3000:3000"
-#    networks:
-#      - backend
-
-  rest_api:
-    container_name: marketplace_rest_api
-    restart: unless-stopped
-    working_dir: /var/www/rest-api
-    volumes:
-      - ./rest-api:/var/www/rest-api
-      - ./external:/var/www/external
-      - ./.docker/php/rest-api/php.ini:/usr/local/etc/php/php.ini
-    build:
-      context: ./.docker/php/rest-api
+      context: ./.docker/php/api
       args:
         user: developer
         uid: 1000
     depends_on:
       - nginx
-      - mysql
-      - redis
-    networks:
-      - backend
-
-  php_worker:
-    container_name: marketplace_php_worker
-    restart: unless-stopped
-    working_dir: /var/www/rest-api
-    volumes:
-      - ./rest-api:/var/www/rest-api
-      - ./external:/var/www/external
-      - ./.docker/php/php-worker/conf.d:/etc/supervisor/conf.d
-      - ./.docker/php/php-worker/php.ini:/usr/local/etc/php/php.ini
-    build:
-      context: ./.docker/php/php-worker
-      args:
-        user: developer
-        uid: 1000
-    depends_on:
-      - nginx
-      - mysql
-      - redis
-    networks:
-      - backend
-
-  crm_seller:
-    container_name: marketplace_crm_seller
-    restart: unless-stopped
-    working_dir: /var/www/crm-seller
-    volumes:
-      - ./crm-seller:/var/www/crm-seller
-      - ./external:/var/www/external
-      - ./.docker/php/crm-seller/php.ini:/usr/local/etc/php/php.ini
-    build:
-      context: ./.docker/php/crm-seller
-      args:
-        user: ${GENERA_USER}
-        uid: ${GENERAL_UID}
-    depends_on:
-      - nginx
-      - mysql
-      - redis
-    networks:
-      - backend
-
-  price:
-    container_name: marketplace_price
-    restart: unless-stopped
-    working_dir: /var/www/price
-    volumes:
-      - ./price:/var/www/price
-      - ./external:/var/www/external
-    build:
-      context: ./.docker/php/price
-      args:
-        user: ${GENERA_USER}
-        uid: ${GENERAL_UID}
-    depends_on:
-      - nginx
-      - mysql
+      - mongo
       - redis
     networks:
       - backend
 
   nginx:
     image: nginx:alpine
-    container_name: marketplace_nginx
+    container_name: influx_nginx
     restart: unless-stopped
     ports:
-      - "8081:8081" # rest-api
-      - "8000:8000" # crm-seller
-      - "8001:8001" # price
-      - "8002:8002" # admin
+      - "8000:8000" # rest-api
     volumes:
-      - ./:/var/www
+      - ./.:/var/www/api
       - ./.docker/nginx/sites-available:/etc/nginx/sites-available
       - ./.docker/nginx/nginx.conf:/etc/nginx/nginx.conf
     networks:
       - backend
 
-  mysql:
-    build:
-      context: ./.docker/mysql
-      args:
-        version: ${MYSQL_VERSION}
-    container_name: marketplace_mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_USER: ${MYSQL_USER}
-    ports:
-      - "${MYSQL_PORT}:3306"
-    volumes:
-      - ${DATA_PATH_HOST}/mysql:/var/lib/mysql
-      - ${MYSQL_ENTRYPOINT_INITDB}:/docker-entrypoint-initdb.d
-    networks:
-      - backend
-
   redis:
     image: redis:latest
-    container_name: marketplace_redis
+    container_name: influx_redis
     restart: always
     command: redis-server --requirepass root
     ports:
@@ -160,19 +43,41 @@ services:
     networks:
       - backend
 
-  rabbitmq:
-    image: rabbitmq:3.11.16-management
-    container_name: marketplace_rabbitmq
-    restart: always
+  mongo:
+    image: mongo:latest
+    container_name: influx_mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
     ports:
-      - "15672:15672"
-      - "5672:5672"
+      - '27017:27017'
     networks:
       - backend
+
+  elasticsearch:
+    image: elasticsearch:8.10.2
+    container_name: influx_elasticsearch
+    environment:
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.zen.minimum_master_nodes=2
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticdata:/usr/share/elasticsearch/data
+    ports:
+      - '9200:9200'
+    networks:
+      - backend
+
 networks:
   backend:
     driver: bridge
 
 volumes:
+  elasticdata:
+    driver: local
   database:
     driver: local
