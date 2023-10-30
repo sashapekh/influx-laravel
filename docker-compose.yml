@@ -18,7 +18,7 @@ services:
       - backend
 
   telegraf:
-    image: telegraf:1.27-alpine
+    image: telegraf:1.28-alpine
     container_name: influx_telegraf
     platform: linux/amd64
     user: root:1000
@@ -47,7 +47,8 @@ services:
     working_dir: /var/www/api
     volumes:
       - ./.:/var/www/api
-      - ./.docker:/usr/local/etc/php/php.ini
+      - ./.docker/php/api/php.ini:/usr/local/etc/php/php.ini
+      - ./.docker/php/api/php-fpm.conf:/usr/local/etc/php-fpm.d/www.conf
     build:
       context: ./.docker/php/api
       args:
@@ -55,7 +56,7 @@ services:
         uid: 1000
     depends_on:
       - nginx
-      - mongo
+      - mongodb
       - redis
     networks:
       - backend
@@ -99,9 +100,8 @@ services:
     networks:
       - backend
 
-  mongo:
+  mongodb:
     image: mongo:latest
-    container_name: influx_mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: root
@@ -111,20 +111,16 @@ services:
       - backend
 
   elasticsearch:
-    image: elasticsearch:8.10.2
-    container_name: influx_elasticsearch
+    image: elasticsearch:8.6.2
     environment:
+      - xpack.security.enabled=false
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - discovery.zen.minimum_master_nodes=2
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    volumes:
-      - elasticdata:/usr/share/elasticsearch/data
+      - discovery.type=single-node
     ports:
-      - '9200:9200'
+      - "127.0.0.1:9200:9200/tcp"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
     networks:
       - backend
 
@@ -135,7 +131,7 @@ networks:
 volumes:
   influxdb_data:
   grafana-data:
-  elasticdata:
+  esdata:
     driver: local
   database:
     driver: local
