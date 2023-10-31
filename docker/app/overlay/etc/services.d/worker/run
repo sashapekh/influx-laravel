@@ -1,0 +1,6 @@
+#!/bin/bash
+
+QUEUE_TRIES=${QUEUE_TRIES:-3}
+QUEUE_TIMEOUT=${QUEUE_TIMEOUT:-90}
+
+exec chpst -u www-data:www-data php /var/www/html/artisan horizon

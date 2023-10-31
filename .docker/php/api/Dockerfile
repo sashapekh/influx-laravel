@@ -44,4 +44,4 @@ RUN pecl install -o -f redis mongodb \
 # Set working directory
 WORKDIR /var/www/api
 
-USER $user
+USER www-data

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+function install() {
+    ENV=${1:-local}
+    cp .env.example .env || true
+
+    if [ $ENV == 'local' ]; then
+      docker-compose build
+
+      composer install --prefer-dist
+      migrate
+    fi
+}
+
+# -----------------
+
+function migrate() {
+    run -u www-data app php artisan migrate $@
+}
+
+function fresh() {
+    run -u www-data app php artisan migrate:fresh --drop-views $@
+}
+
+function clear_all() {
+    run -u www-data app php artisan config:clear
+    run -u www-data app php artisan cache:clear
+    run -u www-data app php artisan route:clear
+}
+
+# -----------------
+
+function test() {
+    run -u www-data app-test php artisan optimize:clear --env=testing
+    run -u www-data app-test php artisan test           --env=testing $@
+}
+
+function test_fast() {
+    run -u www-data app ./vendor/bin/phpunit --order-by=defects $@
+}
+
+# -----------------
+
+function composer() {
+    run -u www-data app composer $@
+}
+
+function artisan() {
+    run -u www-data app php artisan $@
+}
+
+function art() {
+    artisan $@
+}
+
+# -----------------
+
+function run() {
+    docker-compose run --rm --entrypoint= $@
+}
+
+function shell() {
+  WHAT=${1:-app}
+  docker-compose exec -u www-data $WHAT bash
+}
+
+function help() {
+  echo "Usage: $0 [task] <args...>" && compgen -A function | grep -v '^_' | cat -n
+}
+
+
+function stress() {
+    siege -c 50 http://127.0.0.1/load-test
+}
+# -----------------
+
+{ [ "$#" -gt 0 ] && [ "$(type -t "$1")" != "function" ];} && { docker-compose "$@" || true; } || "${@:-help}"

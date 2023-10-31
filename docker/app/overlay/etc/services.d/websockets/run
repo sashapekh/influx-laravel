@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec chpst -u www-data:www-data php /var/www/html/artisan websockets:serve --debug
