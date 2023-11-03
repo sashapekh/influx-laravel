@@ -75,6 +75,17 @@ services:
         - USER_GID=${USER_GID:-1000}
     ports:
       - "127.0.0.1:80:80/tcp"
+  scheduler:
+    <<: *container
+    environment:
+      <<: *environment
+      CONTAINER_ROLE: scheduler
+
+  queue:
+    <<: *container
+    environment:
+      <<: *environment
+      CONTAINER_ROLE: queue
 
   socket-proxy:
     image: tecnativa/docker-socket-proxy
@@ -125,16 +136,7 @@ services:
       - esdata:/usr/share/elasticsearch/data
     networks:
       - backend
-#  elasticsearch:
-#    container_name: es-container
-#    image: docker.elastic.co/elasticsearch/elasticsearch:7.11.0
-#    environment:
-#      - xpack.security.enabled=false
-#      - "discovery.type=single-node"
-#    ports:
-#      - "127.0.0.1:9200:9200/tcp"
-#    volumes:
-#      - esdata:/usr/share/elasticsearch/data
+
 
 
 networks:
